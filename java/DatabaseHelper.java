@@ -29,7 +29,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COMMON_SEP = ",";
     private static final String CREATE_TABLE_STATEMENT =
             "CREATE TABLE "+TableDefinition.TABLE_NAME+"("+
-                    TableDefinition.COLUMN_NAME_1+" "+TableDefinition.COLUMN_TYPE_1+" "+TableDefinition.COLUMN_NULL_1+COMMON_SEP+
+            TableDefinition.COLUMN_NAME_1+" "+TableDefinition.COLUMN_TYPE_1+" "+TableDefinition.COLUMN_NULL_1+COMMON_SEP+
                     TableDefinition.COLUMN_NAME_2+" "+TableDefinition.COLUMN_TYPE_2+" "+TableDefinition.COLUMN_NULL_2+
                     ");";
     private static final String DROP_TABLE_STATEMENT = "DROP TABLE IF EXISTS "+TableDefinition.TABLE_NAME;
