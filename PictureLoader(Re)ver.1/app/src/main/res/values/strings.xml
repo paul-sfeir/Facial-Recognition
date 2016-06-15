@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Picture Loader</string>
+    <string name="LUX">LeftUpX</string>
+    <string name="LUY">LeftUpY</string>
+    <string name="RDX">RightDownX</string>
+    <string name="RDY">RightDownY</string>
+    <string name="SearchButton">Search For Peers</string>
+    <string name="ReceiveButton">Allow Receival</string>
+    <string name="SendButton">Send Image</string>
+    <string name="LoadButton">Load Image</string>
+    <string name="PropertyButton">Image Properties</string>
+    <string name="DetectionButton">Face Detection</string>
+    <string name="UpButton">Up One Directory</string>
+</resources>
