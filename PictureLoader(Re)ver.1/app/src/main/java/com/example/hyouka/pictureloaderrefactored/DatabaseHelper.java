@@ -22,7 +22,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         public static final String[][] IMAGE_FILE_TABLE_COLUMNS =
                 {
                         {"md5","TEXT","NOT NULL"},
-                        {"time","INTEGER","NOT NULL"},
+                        {"time","TEXT","NOT NULL"},
                         {"path","TEXT","NOT NULL"},
                         {"face_num","INTEGER","NOT NULL"}
                 };
@@ -77,7 +77,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         onCreate(db);
     }
 
-    public void addImageFileRecord(String md5,long time,String path,int face_num){
+    public void addImageFileRecord(String md5,String time,String path,int face_num){
         ContentValues cv = new ContentValues();
         cv.put(TableDefinition.IMAGE_FILE_TABLE_COLUMNS[0][0],md5);
         cv.put(TableDefinition.IMAGE_FILE_TABLE_COLUMNS[1][0],time);
@@ -113,10 +113,35 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void deleteAllFaceRecord(){
         getWritableDatabase().execSQL("DELETE * FROM "+TableDefinition.FACE_TABLE_NAME);
     }
+    public Cursor getFileRecords(String md5){
+        return query("SELECT * FROM "+TableDefinition.IMAGE_FILE_TABLE_NAME+" WHERE md5='"+md5+"'");
+    }
+    public Cursor getFaceRecords(String md5){
+        return query("SELECT * FROM "+TableDefinition.FACE_TABLE_NAME+" WHERE md5='"+md5+"'");
+    }
     public void executeSqlStatement(String sql){
         getWritableDatabase().execSQL(sql);
     }
     public Cursor query(String sql){
         return getReadableDatabase().rawQuery(sql,null);
+    }
+    /*
+    * If the definition of the ImageFileData table is changed, check the md5 column or this function may not be usable
+    * */
+    public String[] getFileTableColumnNames(){
+        int columns_num = TableDefinition.IMAGE_FILE_TABLE_COLUMNS.length;
+        String[] names = new String[columns_num];
+        for(int i=0;i<columns_num;++i){
+            names[i] = TableDefinition.IMAGE_FILE_TABLE_COLUMNS[i][0];
+        }
+        return names;
+    }
+    public String[] getFaceTableColumnNames(){
+        int columns_num = TableDefinition.FACE_TABLE_COLUMNS.length;
+        String[] names = new String[columns_num];
+        for(int i=0;i<columns_num;++i){
+            names[i] = TableDefinition.FACE_TABLE_COLUMNS[i][0];
+        }
+        return names;
     }
 }

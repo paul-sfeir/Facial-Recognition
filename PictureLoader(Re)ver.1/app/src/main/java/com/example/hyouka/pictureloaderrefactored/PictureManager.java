@@ -2,6 +2,7 @@ package com.example.hyouka.pictureloaderrefactored;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -11,11 +12,11 @@ import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.drawable.BitmapDrawable;
 import android.media.FaceDetector;
-import android.media.Image;
 import android.os.Environment;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
@@ -26,6 +27,7 @@ import java.io.File;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,9 +63,47 @@ public class PictureManager {
     protected FaceDetector.Face[] faces;
     protected int detected;
 
+    protected DatabaseHelper helper;
+    protected int sample = 1;
+
     public PictureManager(MainActivity activity, ImageView targetImageView){
         this.activity = activity;
         this.iv = targetImageView;
+        helper = new DatabaseHelper(activity.getApplicationContext());
+        setListViewOnItemClickListener();
+    }
+
+    private void setListViewOnItemClickListener(){
+        ListView listView = (ListView) activity.findViewById(R.id.face_position);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if(ImageFilePath.equals(null))return;
+                BitmapDrawable drawable = (BitmapDrawable) iv.getDrawable();
+                if(drawable==null)return;
+                Bitmap bp = drawable.getBitmap();
+                Bitmap tempbp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+                Canvas canvas = new Canvas(tempbp);
+                canvas.drawBitmap(bp, 0, 0, null);
+                Paint paint = new Paint();
+                paint.setColor(Color.YELLOW);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(3);
+                TextView textView = (TextView) view.findViewById(R.id.face_lux);
+                Float lux = Float.parseFloat((String) textView.getText());
+                textView = (TextView) view.findViewById(R.id.face_luy);
+                Float luy = Float.parseFloat((String) textView.getText());
+                textView = (TextView) view.findViewById(R.id.face_rdx);
+                Float rdx = Float.parseFloat((String) textView.getText());
+                textView = (TextView) view.findViewById(R.id.face_rdy);
+                Float rdy = Float.parseFloat((String) textView.getText());
+
+                canvas.drawRect(
+                       lux,luy,rdx,rdy,
+                        paint);
+                iv.setImageDrawable(new BitmapDrawable(activity.getResources(), tempbp));
+            }
+        });
     }
 
     public void enableZoomAndDrag(boolean enable){
@@ -144,6 +184,9 @@ public class PictureManager {
         BitmapFactory.decodeFile(ImageFilePath, opt);
 
         opt.inSampleSize = calculateInSampleSize(opt, IMAGEVIEW_WIDTH, IMAGEVIEW_HEIGHT);
+
+        sample = opt.inSampleSize;
+
         opt.inJustDecodeBounds = false;
         opt.inPreferredConfig = Bitmap.Config.RGB_565;
         Bitmap image = BitmapFactory.decodeFile(ImageFilePath, opt);
@@ -188,27 +231,65 @@ public class PictureManager {
         try {
             // if no image is loaded, do not run detection
             if (ImageFilePath.equals(null)) return;
-            // prepare bitmap
-            ImageView iv = (ImageView) activity.findViewById(R.id.face_image);
-            Bitmap bp = ((BitmapDrawable) iv.getDrawable()).getBitmap();
-            // prepare face detection
-            faces = new FaceDetector.Face[MAX_NUM_OF_FACE];
-            FaceDetector detector = new FaceDetector(width, height, MAX_NUM_OF_FACE);
-            // get detected faces
-            detected = detector.findFaces(bp, faces);
-            // prepare to draw rectangle
-            if(detected<=0)return;
-            float x[] = new float[detected];
-            float y[] = new float[detected];
-            float eye[] = new float[detected];
-            for(int i=0;i<detected;++i){
-                PointF middle = new PointF();
-                faces[i].getMidPoint(middle);
-                x[i] = middle.x;
-                y[i] = middle.y;
-                eye[i] = faces[i].eyesDistance();
+            // TODO: If this file has already been detected, use the previous data rather than
+            // TODO: detect it again. If not detected before, just detect and add to database
+            String md5 = Util.MD5(new File(ImageFilePath));
+            Cursor file = helper.getFileRecords(md5);
+            if(file==null || file.getCount()==0) {
+                // prepare bitmap
+                ImageView iv = (ImageView) activity.findViewById(R.id.face_image);
+                Bitmap bp = ((BitmapDrawable) iv.getDrawable()).getBitmap();
+                // prepare face detection
+                faces = new FaceDetector.Face[MAX_NUM_OF_FACE];
+                FaceDetector detector = new FaceDetector(width, height, MAX_NUM_OF_FACE);
+                // get detected faces
+                detected = detector.findFaces(bp, faces);
+                // prepare to draw rectangle
+                if (detected <= 0) return;
+                float x[] = new float[detected];
+                float y[] = new float[detected];
+                float eye[] = new float[detected];
+                for (int i = 0; i < detected; ++i) {
+                    PointF middle = new PointF();
+                    faces[i].getMidPoint(middle);
+                    x[i] = middle.x;
+                    y[i] = middle.y;
+                    eye[i] = faces[i].eyesDistance();
+                }
+                DrawRectAndSetData(x, y, eye, detected);
+                // insert data
+                helper.addImageFileRecord(md5, Calendar.getInstance().toString(),ImageFilePath,detected);
+                for(int i=0;i<detected;++i){
+                    String eye_dis = Float.toString(faces[i].eyesDistance());
+                    PointF mid = new PointF();
+                    faces[i].getMidPoint(mid);
+                    String mid_x = Float.toString(mid.x);
+                    String mid_y = Float.toString(mid.y);
+                    String confidence = Float.toString(faces[i].confidence());
+                    String e_x = Float.toString(faces[i].pose(0));
+                    String e_y = Float.toString(faces[i].pose(1));
+                    String e_z = Float.toString(faces[i].pose(2));
+                    helper.addFaceRecord(
+                            md5,"face"+i,sample,
+                            eye_dis,mid_x,mid_y,confidence,e_x,e_y,e_z
+                    );
+                }
+            }else{
+                file.moveToFirst();
+                int face_num = file.getInt(3);
+                float[] x = new float[face_num];
+                float[] y = new float[face_num];
+                float[] eye_dis = new float[face_num];
+                Cursor face = helper.getFaceRecords(md5);
+                face.moveToFirst();
+                for(int i=0;i<face_num;++i){
+                    eye_dis[i] = Float.valueOf(face.getString(3));
+                    x[i] = Float.valueOf(face.getString(4));
+                    y[i] = Float.valueOf(face.getString(5));
+                    face.moveToNext();
+                }
+                DrawRectAndSetData(x,y,eye_dis,face_num);
             }
-            DrawRectAndSetData(x,y,eye,detected);
         } catch (Exception e) {
             e.printStackTrace();
         }

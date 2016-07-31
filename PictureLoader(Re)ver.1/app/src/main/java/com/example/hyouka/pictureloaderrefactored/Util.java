@@ -1,5 +1,8 @@
 package com.example.hyouka.pictureloaderrefactored;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.MessageDigest;
@@ -8,7 +11,7 @@ import java.security.MessageDigest;
  * Created by Hyouka on 7/29/2016.
  */
 public class Util {
-   public String MD5(File file){
+   public static String MD5(File file){
        try {
            MessageDigest md = MessageDigest.getInstance("MD5");
            FileInputStream fis = new FileInputStream(file.getAbsolutePath());
@@ -42,4 +45,14 @@ public class Util {
        System.out.println("Digest(in hex format):: " + hexString.toString());
 */
    }
+    public Bitmap decodeFromFile(String path){
+        BitmapFactory.Options opt = new BitmapFactory.Options();
+        opt.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(path, opt);
+        opt.inSampleSize = PictureManager.calculateInSampleSize(opt,350,400);
+        opt.inJustDecodeBounds = false;
+        opt.inPreferredConfig = Bitmap.Config.RGB_565;
+        Bitmap image = BitmapFactory.decodeFile(path, opt);
+        return image;
+    }
 }

@@ -1,13 +1,10 @@
 package com.example.hyouka.pictureloaderrefactored;
 
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
 import android.graphics.PointF;
-import android.graphics.drawable.BitmapDrawable;
 import android.media.FaceDetector;
 import android.net.Uri;
 import android.net.wifi.WpsInfo;
@@ -18,28 +15,19 @@ import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.AsyncTask;
 import android.os.Environment;
-import android.provider.ContactsContract;
 import android.util.Log;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.net.SocketException;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -199,6 +187,7 @@ public class WiFiDeviceManager implements WifiP2pManager.PeerListListener, WifiP
 
         private MainActivity activity;
         private WiFiDeviceManager manager;
+        private DatabaseHelper helper;
         boolean enable=true;
         public void setEnable(boolean state){enable=state;}
         //private TextView statusText;
@@ -206,6 +195,7 @@ public class WiFiDeviceManager implements WifiP2pManager.PeerListListener, WifiP
         public FileServerAsyncTask(MainActivity activity,WiFiDeviceManager manager) {
             this.activity = activity;
             this.manager = manager;
+            this.helper = new DatabaseHelper(activity.getApplicationContext());
             //this.statusText = (TextView) statusText;
         }
 
@@ -246,33 +236,71 @@ public class WiFiDeviceManager implements WifiP2pManager.PeerListListener, WifiP
             if (result != null) {
                 Toast.makeText(activity.getApplicationContext(),"File Received",Toast.LENGTH_SHORT).show();
                 Log.d(PC,"FILE RECEIVED");
-                BitmapFactory.Options opt = new BitmapFactory.Options();
-                opt.inJustDecodeBounds = true;
-                BitmapFactory.decodeFile(result, opt);
-                opt.inSampleSize = PictureManager.calculateInSampleSize(opt,350,400);
-                opt.inJustDecodeBounds = false;
-                opt.inPreferredConfig = Bitmap.Config.RGB_565;
-                Bitmap image = BitmapFactory.decodeFile(result, opt);
-                FaceDetector detector = new FaceDetector(image.getWidth(),image.getHeight(),10);
-                FaceDetector.Face faces[] = new FaceDetector.Face[10];
-                int detected = detector.findFaces(image,faces);
-                if(detected<=0)return;
+                // check whether this file has been detected
+                String md5 = Util.MD5(new File(result));
+                Cursor file = helper.getFileRecords(md5);
+
                 String face_data = new String();
-                for(int i=0;i<detected;++i){
-                    PointF middle = new PointF();
-                    faces[i].getMidPoint(middle);
-                    face_data+=Float.toString(middle.x)+"/";
-                    face_data+=Float.toString(middle.y)+"/";
-                    face_data+=Float.toString(faces[i].eyesDistance())+"/";
+                if(file==null || file.getCount()==0) {
+                    BitmapFactory.Options opt = new BitmapFactory.Options();
+                    opt.inJustDecodeBounds = true;
+                    BitmapFactory.decodeFile(result, opt);
+                    opt.inSampleSize = PictureManager.calculateInSampleSize(opt, 350, 400);
+                    opt.inJustDecodeBounds = false;
+                    opt.inPreferredConfig = Bitmap.Config.RGB_565;
+                    Bitmap image = BitmapFactory.decodeFile(result, opt);
+                    FaceDetector detector = new FaceDetector(image.getWidth(), image.getHeight(), 10);
+                    FaceDetector.Face faces[] = new FaceDetector.Face[10];
+                    int detected = detector.findFaces(image, faces);
+                    if (detected <= 0) return;
+                    for (int i = 0; i < detected; ++i) {
+                        PointF middle = new PointF();
+                        faces[i].getMidPoint(middle);
+                        face_data += Float.toString(middle.x) + "/";
+                        face_data += Float.toString(middle.y) + "/";
+                        face_data += Float.toString(faces[i].eyesDistance()) + "/";
+                    }
+                    // insert data
+                    Calendar calendar = Calendar.getInstance();
+                    helper.addImageFileRecord(md5,calendar.toString(),result,detected);
+                    for(int i=0;i<detected;++i){
+                        String eye_dis = Float.toString(faces[i].eyesDistance());
+                        PointF mid = new PointF();
+                        faces[i].getMidPoint(mid);
+                        String mid_x = Float.toString(mid.x);
+                        String mid_y = Float.toString(mid.y);
+                        String confidence = Float.toString(faces[i].confidence());
+                        String e_x = Float.toString(faces[i].pose(0));
+                        String e_y = Float.toString(faces[i].pose(1));
+                        String e_z = Float.toString(faces[i].pose(2));
+                        helper.addFaceRecord(
+                                md5,"face"+i,opt.inSampleSize,
+                                eye_dis,mid_x,mid_y,confidence,e_x,e_y,e_z
+                        );
+                    }
+                }else{
+                    file.moveToFirst();
+                    Cursor face = helper.getFaceRecords(md5);
+                    int face_num = file.getInt(3);
+                    face.moveToFirst();
+                    for(int i=0;i<face_num;++i){
+                        String eye_dis = face.getString(3);
+                        String mid_x = face.getString(4);
+                        String mid_y = face.getString(5);
+                        face_data += mid_x +"/";
+                        face_data += mid_y +"/";
+                        face_data += eye_dis +"/";
+                        face.moveToNext();
+                    }
                 }
-                Log.d(PC,"WiFiDeviceManager.FileServerAsyncTask.onPostExecute: preparation of data end");
-                Intent service = new Intent(activity,WiFiFileTransferService.class);
+                Log.d(PC, "WiFiDeviceManager.FileServerAsyncTask.onPostExecute: preparation of data end");
+                Intent service = new Intent(activity, WiFiFileTransferService.class);
                 service.setAction(WiFiFileTransferService.ACTION_SEND_FACE_DATA);
-                service.putExtra(WiFiFileTransferService.EXTRAS_IP_ADDRESS,manager.targetIPAddress);
-                service.putExtra(WiFiFileTransferService.EXTRAS_PORT,FACE_DATA_PORT);
-                service.putExtra(WiFiFileTransferService.EXTRAS_FACE_DATA,face_data);
-                Toast.makeText(activity.getApplicationContext(),"Send Face Data",Toast.LENGTH_SHORT).show();
-                Log.d(PC,"WiFiDeviceManager.FileServerAsyncTask.onPostExecute: just before Service start");
+                service.putExtra(WiFiFileTransferService.EXTRAS_IP_ADDRESS, manager.targetIPAddress);
+                service.putExtra(WiFiFileTransferService.EXTRAS_PORT, FACE_DATA_PORT);
+                service.putExtra(WiFiFileTransferService.EXTRAS_FACE_DATA, face_data);
+                Toast.makeText(activity.getApplicationContext(), "Send Face Data", Toast.LENGTH_SHORT).show();
+                Log.d(PC, "WiFiDeviceManager.FileServerAsyncTask.onPostExecute: just before Service start");
                 activity.startService(service);
             }
 
