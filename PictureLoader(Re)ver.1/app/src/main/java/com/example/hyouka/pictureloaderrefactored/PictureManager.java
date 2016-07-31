@@ -178,11 +178,10 @@ public class PictureManager {
 
     public void setPicture(String path){
         if(!Util.isImage(new File(path).getName()))return;
-        ImageFilePath = path;
         Log.d(PC,"image loading from: "+path);
         BitmapFactory.Options opt = new BitmapFactory.Options();
         opt.inJustDecodeBounds = true;
-        BitmapFactory.decodeFile(ImageFilePath, opt);
+        BitmapFactory.decodeFile(path, opt);
 
         opt.inSampleSize = calculateInSampleSize(opt, IMAGEVIEW_WIDTH, IMAGEVIEW_HEIGHT);
 
@@ -190,11 +189,13 @@ public class PictureManager {
 
         opt.inJustDecodeBounds = false;
         opt.inPreferredConfig = Bitmap.Config.RGB_565;
-        Bitmap image = BitmapFactory.decodeFile(ImageFilePath, opt);
+        Bitmap image = BitmapFactory.decodeFile(path, opt);
         iv.setImageBitmap(image);
         iv.setImageMatrix(resetMatrix);
         iv.invalidate();
 
+        if(image==null)return;
+        ImageFilePath = path;
         // get image property for property button to show
         width = image.getWidth();
         height = image.getHeight();

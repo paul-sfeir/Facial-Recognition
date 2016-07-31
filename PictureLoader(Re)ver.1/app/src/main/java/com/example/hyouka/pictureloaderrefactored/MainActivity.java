@@ -110,6 +110,7 @@ public class MainActivity extends Activity {
                     break;
                 case R.id.property_btn:
                     myPictureManager.showPictureProperty();
+                    //Util.test(MainActivity.this,myPictureManager.iv);
                     break;
                 case R.id.detection_btn:
                     Log.d(PC,"detect start");

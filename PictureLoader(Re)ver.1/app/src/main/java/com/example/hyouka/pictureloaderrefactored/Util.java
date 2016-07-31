@@ -63,4 +63,19 @@ public class Util {
         }
         return false;
     }
+/*
+    public static void test(MainActivity activity, ImageView iv){
+        PictureManager myPicture = new PictureManager(activity,iv);
+        String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+        path+="/com.example.hyouka.pictureloaderrefactored";
+        File[] files = new File(path).listFiles();
+        for(int i=0;i<files.length;++i){
+            if(files[i].isFile()&&isImage(files[i].getName())){
+                myPicture.setPicture(files[i].getAbsolutePath());
+                myPicture.detectFaces(10);
+            }
+        }
+    }
+    */
 }
+
