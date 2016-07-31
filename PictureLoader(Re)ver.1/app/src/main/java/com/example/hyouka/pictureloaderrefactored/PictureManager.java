@@ -177,6 +177,7 @@ public class PictureManager {
     }
 
     public void setPicture(String path){
+        if(!Util.isImage(new File(path).getName()))return;
         ImageFilePath = path;
         Log.d(PC,"image loading from: "+path);
         BitmapFactory.Options opt = new BitmapFactory.Options();
@@ -231,14 +232,15 @@ public class PictureManager {
         try {
             // if no image is loaded, do not run detection
             if (ImageFilePath.equals(null)) return;
-            // TODO: If this file has already been detected, use the previous data rather than
-            // TODO: detect it again. If not detected before, just detect and add to database
             String md5 = Util.MD5(new File(ImageFilePath));
             Cursor file = helper.getFileRecords(md5);
             if(file==null || file.getCount()==0) {
                 // prepare bitmap
                 ImageView iv = (ImageView) activity.findViewById(R.id.face_image);
-                Bitmap bp = ((BitmapDrawable) iv.getDrawable()).getBitmap();
+                BitmapDrawable drawable = (BitmapDrawable) iv.getDrawable();
+                Bitmap bp = null;
+                if(drawable==null)return;
+                else bp = drawable.getBitmap();
                 // prepare face detection
                 faces = new FaceDetector.Face[MAX_NUM_OF_FACE];
                 FaceDetector detector = new FaceDetector(width, height, MAX_NUM_OF_FACE);

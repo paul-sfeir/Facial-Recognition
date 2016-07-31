@@ -55,4 +55,12 @@ public class Util {
         Bitmap image = BitmapFactory.decodeFile(path, opt);
         return image;
     }
+
+    public static boolean isImage(String name){
+        String[] extension = {".jpg", ".png", ".jpeg"};
+        for(int i=0;i<extension.length;++i){
+            if(name.endsWith(extension[i]))return true;
+        }
+        return false;
+    }
 }
